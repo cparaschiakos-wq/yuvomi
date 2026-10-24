@@ -66,6 +66,21 @@ fi
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 fehlt (docker compose version)."
 systemctl enable --now docker
 
+# --- Swap bei wenig RAM -----------------------------------------------------
+# Yuvomi selbst braucht 256 MB. Ein Image-Build des Forks auf dem Server (npm
+# install) kippt auf 1 GB ohne Swap. 2 GB Swapfile, nur wenn noch keiner da ist.
+MEM_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)"
+if [[ "$MEM_MB" -lt 2048 ]] && [[ "$(swapon --show --noheadings | wc -l)" -eq 0 ]]; then
+  log "Nur ${MEM_MB} MB RAM: 2 GB Swap anlegen"
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  sysctl -w vm.swappiness=10 >/dev/null
+  grep -q '^vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >> /etc/sysctl.conf
+fi
+
 # --- Firewall ---------------------------------------------------------------
 log "Firewall: nur SSH, HTTP und HTTPS"
 ufw default deny incoming >/dev/null

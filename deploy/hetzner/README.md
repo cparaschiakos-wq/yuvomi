@@ -1,9 +1,10 @@
-# Yuvomi auf einem Mietserver (Hetzner Cloud) mit Caddy
+# Yuvomi auf einem Mietserver (VPS) mit Caddy
 
 Ein Server, zwei Container: Yuvomi und Caddy als Reverse Proxy mit automatischem
 Let's-Encrypt-Zertifikat. Gedacht für einen Haushalt, der Yuvomi von überall und
-mit Google-Calendar-Sync nutzen will. Kosten: der kleinste Hetzner-Cloud-Server
-(Stand Oktober 2026 rund 5,50 € im Monat) plus eine Domain (2 bis 5 € im Jahr).
+mit Google-Calendar-Sync nutzen will. Kosten: ein kleiner VPS für 8 bis 10 € im
+Monat plus eine Domain (2 bis 5 € im Jahr). Der Anbieter ist egal, solange es ein
+Debian oder Ubuntu mit root-Zugang und eigener IPv4-Adresse ist.
 
 Dieser Ordner ist eine Ergänzung zur allgemeinen [Installationsanleitung](../../docs/installation.md);
 dort stehen alle Umgebungsvariablen im Detail.
@@ -12,8 +13,24 @@ dort stehen alle Umgebungsvariablen im Detail.
 
 1. **Eine Domain** und Zugriff auf ihre DNS-Einträge.
 2. **Einen Server** mit Debian 12 oder Ubuntu 24.04, Zugang per SSH-Schlüssel.
-   Bei Hetzner Cloud: Standort Nürnberg oder Falkenstein, Typ CX23 reicht.
-   In der Hetzner-Firewall nur die Ports 22, 80 und 443 öffnen.
+   Yuvomi braucht 256 MB RAM; 1 GB reicht für den Betrieb, 2 GB oder mehr sind
+   angenehmer, wenn das Fork-Image auf dem Server selbst gebaut werden soll
+   (bei weniger als 2 GB legt `bootstrap.sh` 2 GB Swap an). x86 und ARM gehen
+   beide, Yuvomi liefert Images für amd64 und arm64.
+
+   Stand Oktober 2026 in Deutschland bestellbar:
+
+   | Anbieter | Typ | Ausstattung | Preis brutto/Monat |
+   |---|---|---|---|
+   | Hetzner Cloud | CPX02 (Regular Performance) | 1 vCPU, 1 GB, 20 GB | 7,72 € |
+   | netcup | VPS 500 G12.5 | 2 vCore, 4 GB, 64 GB | 8,26 € bei 12 Monaten, 9,50 € monatlich |
+   | Hetzner Cloud | CX23 / CAX11 (Cost-Optimized) | 2 vCPU, 4 GB, 40 GB | 7,13 € / 7,72 €, derzeit **nicht bestellbar** |
+
+   Die Cost-Optimized-Linie von Hetzner ist kontingentiert und seit Herbst
+   2026 ausverkauft; was wirklich bestellbar ist, zeigt nur die Cloud Console
+   beim Anlegen eines Servers je Standort. Bei netcup den Standort Nürnberg
+   wählen. Die Firewall des Anbieters, falls vorhanden, auf 22, 80 und 443
+   beschränken; `bootstrap.sh` setzt zusätzlich ufw auf dem Server.
 3. **Einen A-Record** `essen.deine-domain.de -> <Server-IPv4>`. Optional einen
    AAAA-Record auf die IPv6-Adresse. Der Eintrag muss stehen, bevor Caddy ein
    Zertifikat holen kann.
@@ -77,8 +94,9 @@ Yuvomi sichert täglich um 02:00 Uhr nach `/opt/yuvomi/backups` und behält 14
 Stände. Das liegt auf derselben Platte wie die Datenbank. Ein zweiter Ort ist
 Pflicht, zum Beispiel eine Hetzner Storage Box (ab etwa 4 € im Monat) oder eine
 vorhandene Nextcloud: `WEBDAV_BACKUP_*` in der `.env` setzen, dann
-`docker compose up -d`. Alternativ Hetzners Server-Backup-Option buchen (20 %
-des Serverpreises), die sichert die ganze Platte.
+`docker compose up -d`. Alternativ die Snapshot- oder Backup-Option des
+Anbieters buchen (bei Hetzner 20 % des Serverpreises), die sichert die ganze
+Platte.
 
 Ein Backup lässt sich in Yuvomi unter Einstellungen → Haushalt → Backup
 zurückspielen. Der Datenbankschlüssel muss dabei derselbe sein.
@@ -104,8 +122,9 @@ Der Stack zieht standardmäßig das Upstream-Image. Sobald der eigene Fork
 
 - **Auf dem Server bauen:** in `/root/yuvomi-src` den Branch aktualisieren,
   `docker build -t yuvomi-fork:latest .` ausführen und in der `.env`
-  `YUVOMI_IMAGE=yuvomi-fork:latest` setzen. Dauert einige Minuten auf dem
-  kleinen Server, geht aber ohne weitere Infrastruktur.
+  `YUVOMI_IMAGE=yuvomi-fork:latest` setzen. Dauert auf einem 1-GB-Server
+  einige Minuten und braucht den Swap, den `bootstrap.sh` anlegt; geht aber
+  ohne weitere Infrastruktur.
 - **Image in der GitHub Container Registry:** der Upstream-Workflow unter
   `.github/workflows/docker-publish.yml` baut bei Tags ein Image. Im Fork
   aktiviert liegt es dann unter `ghcr.io/<github-user>/yuvomi`, und die `.env`
