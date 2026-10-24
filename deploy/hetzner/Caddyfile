@@ -1,0 +1,17 @@
+# Caddy holt und erneuert das Zertifikat selbst. DOMAIN und ACME_EMAIL kommen
+# aus der .env über docker-compose.yml.
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy yuvomi:3000
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}
